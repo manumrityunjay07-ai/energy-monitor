@@ -1,0 +1,123 @@
+"""Test suite for Energy Monitor collector and contract safety."""
+
+import tempfile
+import unittest
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import collect_once
+
+
+class CollectorSafetyTests(unittest.TestCase):
+    def test_data_quality_is_complete_for_completed_hours(self):
+        now = datetime(2026, 9, 13, 5, 30, tzinfo=ZoneInfo("Asia/Kolkata"))
+        profile = {str(hour): float(hour) for hour in range(5)}
+        quality = collect_once.data_quality(profile, now, 100.0)
+        self.assertEqual(quality["score"], 100.0)
+        self.assertEqual(quality["completed_hours"], 5)
+        self.assertEqual(quality["status"], "complete")
+
+    def test_upsert_migrates_legacy_schema_without_duplicates(self):
+        fields = ["device_id", "date", "model_version"]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "results.csv"
+            path.write_text("device_id,date\n153,2026-09-12\n", encoding="utf-8")
+            collect_once.upsert_csv(path, fields, [{"device_id": 153, "date": "2026-09-12", "model_version": "v2"}], ["device_id", "date"])
+            rows = path.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(rows[0], "device_id,date,model_version")
+            self.assertEqual(len(rows), 2)
+            self.assertIn("v2", rows[1])
+
+    def test_daily_adaptation_is_capped(self):
+        daily = {f"2026-09-{day:02d}": 1000.0 for day in range(1, 8)}
+        history = {f"2026-09-{day:02d}": {"error_kwh": 10000.0} for day in range(1, 8)}
+        forecast = collect_once.adaptive_daily_forecast(daily, history, "2026-09-08", "2026-09-07", datetime.now(ZoneInfo("Asia/Kolkata")))
+        self.assertIsNotNone(forecast)
+        prediction, base, correction, *_ = forecast
+        self.assertLessEqual(abs(correction), abs(base) * 0.25 + 1e-6)
+        self.assertGreaterEqual(prediction, 0)
+
+    def test_model_guard_rolls_back_when_adaptation_is_worse(self):
+        history = {
+            str(day): {
+                "actual_kwh": 1000,
+                "base_prediction_kwh": 1000,
+                "predicted_kwh": 1300,
+            }
+            for day in range(5)
+        }
+        guard = collect_once.evaluate_model_guard(history)
+        self.assertFalse(guard["adaptation_enabled"])
+        self.assertIn("rollback", guard["reason"])
+
+    def test_early_feedback_holds_the_baseline(self):
+        daily_totals = {f"2026-09-{day:02d}": 1000.0 for day in range(10, 13)}
+        forecast = collect_once.adaptive_daily_forecast(
+            daily_totals,
+            {"2026-09-12": {"error_kwh": 500.0}},
+            "2026-09-13",
+            "2026-09-12",
+            datetime.now(ZoneInfo("Asia/Kolkata")),
+            True,
+        )
+        self.assertIsNotNone(forecast)
+        self.assertEqual(forecast[2], 0.0)
+
+    def test_historical_backfill_persists_evaluated_error_without_hourly_data(self):
+        daily_totals = {f"2026-09-{day:02d}": 1000.0 + day for day in range(1, 13)}
+        processed, history = {}, {}
+        changed = collect_once.backfill_daily_forecast_rows(
+            daily_totals,
+            processed,
+            history,
+            datetime(2026, 9, 13, 8, 0, tzinfo=ZoneInfo("Asia/Kolkata")),
+            "2026-09-13",
+            True,
+        )
+        self.assertGreater(changed, 0)
+        row = processed["2026-09-12"]
+        self.assertEqual(row["data_status"], "daily_total_only")
+        self.assertNotIn("hourly_forecast", row)
+        self.assertAlmostEqual(
+            float(row["prediction_error_kwh"]),
+            float(row["actual_kwh"]) - float(row["previous_prediction_kwh"]),
+            places=6,
+        )
+
+    def test_invalid_daily_date_is_rejected(self):
+        original = collect_once.request_json
+        try:
+            collect_once.request_json = lambda *args, **kwargs: ({"data": [{"custom_day": "2026-99-99", "total_consumption": "10"}, {"custom_day": "2026-01-01", "total_consumption": "11"}, {"custom_day": "2026-09-13", "total_consumption": "12"}, {"custom_day": "2026-09-15", "total_consumption": "13"}]}, 1.0)
+            totals, _ = collect_once.fetch_daily_totals(datetime(2026, 9, 14).date())
+            self.assertEqual(totals, {"2026-09-13": 12.0})
+        finally:
+            collect_once.request_json = original
+
+    def test_anomaly_input_dimension_mismatch_fails_closed(self):
+        with self.assertRaises(ValueError):
+            collect_once.anomaly_result([1.0], datetime.now(ZoneInfo("Asia/Kolkata")), "2026-09-13", 1.0)
+
+    def test_model_guard_is_chronological_not_insertion_order(self):
+        history = {
+            "2026-09-14": {"actual_kwh": 100, "base_prediction_kwh": 100, "predicted_kwh": 100},
+            "2026-09-10": {"actual_kwh": 100, "base_prediction_kwh": 100, "predicted_kwh": 130},
+            "2026-09-12": {"actual_kwh": 100, "base_prediction_kwh": 100, "predicted_kwh": 130},
+            "2026-09-11": {"actual_kwh": 100, "base_prediction_kwh": 100, "predicted_kwh": 130},
+            "2026-09-13": {"actual_kwh": 100, "base_prediction_kwh": 100, "predicted_kwh": 130},
+        }
+        guard = collect_once.evaluate_model_guard(history)
+        self.assertFalse(guard["adaptation_enabled"])
+
+    def test_improvement_report_is_bounded_and_review_gated(self):
+        report = collect_once.build_improvement_report(
+            {"model_guard": {"adaptation_enabled": True, "reason": "adapted model retained", "evaluated_cycles": 6, "base_mae": 10.0, "adapted_mae": 9.0}, "processed": {str(i): {"actual_kwh": 100} for i in range(6)}},
+            datetime(2026, 9, 15, 12, 0, tzinfo=ZoneInfo("Asia/Kolkata")),
+        )
+        self.assertEqual(report["status"], "adaptive")
+        self.assertEqual(report["safety_policy"]["maximum_correction_fraction"], 0.25)
+        self.assertFalse(report["safety_policy"]["unreviewed_code_changes"])
+
+
+if __name__ == "__main__":
+    unittest.main()

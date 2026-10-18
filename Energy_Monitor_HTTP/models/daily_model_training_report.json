@@ -1,0 +1,55 @@
+{
+  "device_id": 153,
+  "generated_at": "2026-10-18T17:33:44.604435+05:30",
+  "data_source": "PostgreSQL daily_energy.actual_kwh",
+  "records_loaded": 55,
+  "first_actual_date": "2026-08-22",
+  "last_actual_date": "2026-10-17",
+  "supervised_examples": 48,
+  "train_examples": 38,
+  "test_examples": 10,
+  "test_dates": [
+    "2026-10-08",
+    "2026-10-09",
+    "2026-10-10",
+    "2026-10-11",
+    "2026-10-12",
+    "2026-10-13",
+    "2026-10-14",
+    "2026-10-15",
+    "2026-10-16",
+    "2026-10-17"
+  ],
+  "baseline_previous_observation": {
+    "mae_kwh": 48.295,
+    "rmse_kwh": 60.688639
+  },
+  "candidate_models": {
+    "ridge": {
+      "mae_kwh": 72.462871,
+      "rmse_kwh": 80.986371
+    },
+    "random_forest": {
+      "mae_kwh": 42.712127,
+      "rmse_kwh": 47.981015
+    },
+    "hist_gradient_boosting": {
+      "mae_kwh": 78.946474,
+      "rmse_kwh": 85.511205
+    }
+  },
+  "selected_candidate": "random_forest",
+  "candidate_beats_baseline": true,
+  "random_forest_is_best_candidate": true,
+  "random_forest_beats_baseline_by_minimum_margin": true,
+  "required_minimum_improvement_fraction": 0.05,
+  "new_actual_dates_since_approved_model": false,
+  "current_approved_trained_through": "2026-10-17",
+  "approved_model_promoted_this_run": false,
+  "next_day_forecast_date": "2026-10-18",
+  "next_day_forecast_kwh": 1439.225368,
+  "candidate_model_path": "C:\\Antigravity IDE\\Mini Project\\Energy_Monitor_HTTP\\models\\daily_energy_candidate.joblib",
+  "approved_model_path": "C:\\Antigravity IDE\\Mini Project\\Energy_Monitor_HTTP\\models\\daily_energy_model.joblib",
+  "deployment_status": "approved_model_preserved_no_new_actual_dates",
+  "important_note": "Random Forest is promoted only if it is the best tested family, beats the previous-reading baseline by at least 5% MAE, and includes at least one newer actual date than the currently approved model. Validation uses chronological one-step-ahead holdout; it is not a guarantee of future accuracy."
+}

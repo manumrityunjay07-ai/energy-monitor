@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Real-time energy consumption monitoring dashboard for Device 153. Tracks daily and hourly predicted and actual kWh usage with anomaly detection." />
+  <title>Device 153 — Energy Monitoring Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <meta name="dashboard-build" content="2026-10-13-r5" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=20261013-r9" />
+  <link rel="stylesheet" href="history-suggestions.css?v=20261013-r9" />
+  <link rel="stylesheet" href="ui-polish.css?v=20261013-r9" />
+  <link rel="stylesheet" href="monitoring-panels.css?v=20261013-r9" />
+  <link rel="stylesheet" href="confidence-ui.css?v=20261013-r9" />
+  <link rel="stylesheet" href="diagnostics.css?v=20261013-r9" />
+  <link rel="stylesheet" href="ai-improvement.css?v=20261013-r9" />
+</head>
+<body>
+
+  <!-- ── Background orbs ───────────────────────────────────────────── -->
+  <div class="bg-orb bg-orb--1" aria-hidden="true"></div>
+  <div class="bg-orb bg-orb--2" aria-hidden="true"></div>
+  <div class="bg-orb bg-orb--3" aria-hidden="true"></div>
+
+  <div class="app-shell">
+
+    <!-- ── Header ─────────────────────────────────────────────────── -->
+    <header class="site-header">
+      <div class="header-left">
+        <div class="logo-mark" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 2L4 16h10l-2 10L24 12H14L16 2Z" fill="url(#bolt)" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+            <defs>
+              <linearGradient id="bolt" x1="4" y1="2" x2="24" y2="26" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#60a5fa"/>
+                <stop offset="1" stop-color="#a78bfa"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="header-titles">
+          <h1 class="site-title">Device 153 Energy Monitoring Dashboard</h1>
+          <span class="site-subtitle">Real-time consumption analysis &amp; anomaly detection</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="update-badge" id="update-badge">
+          <span class="update-dot" id="update-dot"></span>
+          <span id="last-updated">Loading…</span>
+        </div>
+        <button class="btn-refresh" id="btn-refresh" aria-label="Refresh data now">
+          <svg class="btn-refresh__icon" id="refresh-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M13.65 2.35A8 8 0 1 0 15 8h-2a6 6 0 1 1-1.76-4.24L9 6h6V0l-1.35 2.35Z" fill="currentColor"/>
+          </svg>
+          Refresh Now
+        </button>
+      </div>
+    </header>
+
+    <!-- ── Loading / Error overlays ───────────────────────────────── -->
+    <div class="status-overlay" id="loading-overlay" role="status" aria-live="polite">
+      <div class="spinner"></div>
+      <p class="status-overlay__text">Fetching latest energy data…</p>
+    </div>
+
+    <div class="status-overlay status-overlay--error hidden" id="error-overlay" role="alert" aria-live="assertive">
+      <div class="error-icon" aria-hidden="true">⚡</div>
+      <p class="status-overlay__text" id="error-message">Failed to load data.</p>
+      <button class="btn-refresh" id="btn-retry">Try Again</button>
+    </div>
+
+    <!-- ── Main content ────────────────────────────────────────────── -->
+    <main class="main-content hidden" id="main-content">
+
+      <!-- KPI cards row -->
+      <section class="kpi-grid" aria-label="Key performance indicators">
+
+        <article class="card kpi-card" id="card-predicted">
+          <div class="kpi-card__icon kpi-card__icon--blue" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div class="kpi-card__body">
+            <span class="kpi-card__label" id="kpi-predicted-label">Predicted Energy</span>
+            <span class="kpi-card__value" id="kpi-predicted">—</span>
+            <span class="kpi-card__unit">kWh</span>
+            <span class="kpi-card__range" id="prediction-range">Expected range: —</span>
+            <span class="kpi-card__date" id="kpi-predicted-date">—</span>
+          </div>
+        </article>
+
+        <article class="card kpi-card" id="card-actual">
+          <div class="kpi-card__icon kpi-card__icon--green" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V12M12 12L7 7M12 12l5-5"/><circle cx="12" cy="5" r="3"/></svg>
+          </div>
+          <div class="kpi-card__body">
+            <span class="kpi-card__label" id="kpi-actual-label">Actual Energy</span>
+            <span class="kpi-card__value" id="kpi-actual">—</span>
+            <span class="kpi-card__unit" id="kpi-actual-unit">kWh</span>
+            <span class="kpi-card__range" id="kpi-actual-hint">24h recorded total</span>
+            <span class="kpi-card__date" id="kpi-actual-date">—</span>
+          </div>
+        </article>
+
+        <article class="card kpi-card" id="card-error">
+          <div class="kpi-card__icon kpi-card__icon--amber" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="kpi-card__body">
+            <span class="kpi-card__label" id="kpi-error-label">Saved / Over used</span>
+            <span class="kpi-card__value" id="kpi-error">—</span>
+            <span class="kpi-card__unit" id="kpi-error-unit">kWh</span>
+            <span class="kpi-card__range" id="kpi-error-hint">Variance vs forecast</span>
+            <span class="kpi-card__date" id="kpi-error-date">—</span>
+          </div>
+        </article>
+
+
+      </section>
+
+      <!-- Collector health and controls -->
+      <section class="card health-strip" aria-label="Collector health and date controls">
+        <div class="health-metrics-grid">
+          <div class="health-metric"><span class="health-label">Collector</span><strong id="collector-health">Checking…</strong></div>
+          <div class="health-metric"><span class="health-label">Latest collection</span><strong id="collector-last-run">—</strong></div>
+          <div class="health-metric"><span class="health-label">Data freshness</span><strong id="data-freshness">—</strong></div>
+          <div class="health-metric"><span class="health-label">Current data status</span><strong id="current-data-status">—</strong></div>
+        </div>
+        <div class="health-actions-bar">
+          <div class="range-controls" role="group" aria-label="History range">
+            <span class="action-bar-label">Trend History:</span>
+            <button class="range-btn is-active" data-days="7">7 days</button>
+            <button class="range-btn" data-days="14">14 days</button>
+            <button class="range-btn" data-days="30">30 days</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Daily Trend Chart section -->
+      <section class="card chart-section" aria-label="Daily energy history trend">
+        <div class="chart-section__header">
+          <div>
+            <h2 class="section-title">Daily Energy History Trend</h2>
+            <span class="section-hint" id="history-caption">Last 7 days</span>
+          </div>
+          <div class="chart-legend" aria-hidden="true">
+            <span class="legend-dot legend-dot--actual"></span><span>Actual</span>
+            <span class="legend-dot legend-dot--predicted"></span><span>Forecast</span>
+          </div>
+        </div>
+        <div class="chart-wrap chart-wrap--daily">
+          <canvas id="daily-history-chart" aria-label="Daily energy history chart" aria-describedby="daily-chart-summary"></canvas>
+        </div>
+        <p class="sr-only" id="daily-chart-summary">Daily energy history chart.</p>
+      </section>
+
+      <section class="card chart-section" aria-label="24-hour hourly energy chart">
+        <div class="chart-section__header">
+          <h2 class="section-title">24-Hour Hourly Consumption</h2>
+          <span class="section-hint" id="hourly-data-date">Data date: —</span>
+          <div class="chart-legend" aria-hidden="true">
+            <span class="legend-dot legend-dot--predicted"></span><span>Predicted</span>
+            <span class="legend-dot legend-dot--actual"></span><span>Actual</span>
+            <span class="legend-dot legend-dot--error"></span><span>Saved / Over used</span>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="hourly-chart" aria-label="Hourly energy consumption chart" aria-describedby="hourly-chart-summary"></canvas>
+        </div>
+        <p class="sr-only" id="hourly-chart-summary">No hourly records are available for the selected daily date.</p>
+      </section>
+
+      <!-- Hourly data table -->
+      <section class="card table-section" aria-label="Hourly data table">
+        <div class="table-section__header">
+          <h2 class="section-title">Hourly Breakdown</h2>
+          <span class="no-actual-note hidden" id="no-actual-note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Actual values not yet available for this period
+          </span>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Scrollable hourly data table" tabindex="0">
+          <table id="hourly-table" aria-live="polite">
+            <thead>
+              <tr>
+                <th scope="col">Hour (IST)</th>
+                <th scope="col">Predicted kWh</th>
+                <th scope="col">Actual kWh</th>
+                <th scope="col">Saved kWh</th>
+                <th scope="col">Over used kWh</th>
+              </tr>
+            </thead>
+            <tbody id="hourly-table-body">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card diagnostics-card" aria-label="Anomaly investigation">
+        <div class="table-section__header">
+          <h2 class="section-title">Anomaly Investigation</h2>
+          <span class="section-hint">Largest hour-level deviations</span>
+        </div>
+        <ul id="anomaly-investigation-list" class="suggestions-list" aria-live="polite"></ul>
+      </section>
+
+
+    </main>
+
+    <!-- ── Footer ─────────────────────────────────────────────────── -->
+    <footer class="site-footer">
+      <span>Device 153 Energy Monitor &nbsp;·&nbsp; Build 2026-10-14-r5 &nbsp;·&nbsp; Data refreshes every 5 minutes &nbsp;·&nbsp; Times in IST (Asia/Kolkata)</span>
+    </footer>
+
+  </div><!-- .app-shell -->
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="app.js?v=20261014-r5"></script>
+</body>
+</html>

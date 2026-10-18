@@ -1,0 +1,71 @@
+# Energy Monitor — Render Blueprint
+# https://docs.render.com/blueprint-spec
+#
+# Architecture:
+#   1. Web service: dashboard API + static files, persistent disk for model/state.
+#   2. Cron job: daily maintenance (collect → train/validate), runs at 01:45 UTC
+#      (07:15 IST, matching the existing Windows Task Scheduler time).
+#   3. Managed PostgreSQL database.
+#
+# The cron job persists all data to PostgreSQL.  The web service has a persistent
+# disk for the approved model artifact and local state/result cache files.
+
+services:
+  # ── Dashboard web service ──────────────────────────────────────────────
+  - type: web
+    name: energy-monitor
+    runtime: python
+    region: singapore  # closest to Asia/Kolkata
+    plan: starter
+    branch: main
+    buildCommand: pip install -r requirements-render.txt
+    startCommand: python deployment_start.py
+    healthCheckPath: /api/health
+    disk:
+      name: energy-data
+      mountPath: /var/data/energy-monitor
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: energy-monitor-db
+          property: connectionString
+      - key: RENDER
+        value: "true"
+      - key: DEVICE_ID
+        value: "153"
+      - key: PERSISTENT_DIR
+        value: /var/data/energy-monitor
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+
+  # ── Scheduled maintenance cron ─────────────────────────────────────────
+  - type: cron
+    name: energy-monitor-maintenance
+    runtime: python
+    region: singapore
+    plan: starter
+    branch: main
+    # 01:45 UTC = 07:15 IST (matches existing Windows Task Scheduler)
+    schedule: "45 1 * * *"
+    buildCommand: pip install -r requirements-render.txt
+    startCommand: python run_maintenance.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: energy-monitor-db
+          property: connectionString
+      - key: RENDER
+        value: "true"
+      - key: DEVICE_ID
+        value: "153"
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+
+# ── Managed PostgreSQL database ────────────────────────────────────────
+databases:
+  - name: energy-monitor-db
+    databaseName: energy_monitor
+    user: energy_monitor
+    plan: starter
+    region: singapore
