@@ -165,6 +165,33 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def _is_production(self) -> bool:
         return os.getenv("RENDER") == "true" or os.getenv("DATABASE_URL") is not None
 
+    def _check_auth(self) -> bool:
+        """Verify Basic Auth credentials if DASHBOARD_USER and DASHBOARD_PASS are set."""
+        user = os.getenv("DASHBOARD_USER")
+        password = os.getenv("DASHBOARD_PASS")
+        if not user or not password:
+            return True  # Auth not required if credentials not configured
+
+        auth_header = self.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Basic "):
+            return False
+        try:
+            import base64
+            import secrets
+            encoded = auth_header.split(" ", 1)[1].strip()
+            decoded = base64.b64decode(encoded).decode("utf-8")
+            req_user, req_pass = decoded.split(":", 1)
+            return secrets.compare_digest(req_user, user) and secrets.compare_digest(req_pass, password)
+        except Exception:
+            return False
+
+    def _send_auth_required(self) -> None:
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Basic realm="Energy Monitor Dashboard"')
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b"Authentication required\n")
+
     def _error_detail(self, exc: Exception) -> str | None:
         """Return exception detail only during local development."""
         if self._is_production():
@@ -175,16 +202,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
-        if path == "/api/dashboard-data":
-            try:
-                self._send_json(get_dashboard_payload())
-            except Exception as exc:
-                detail = self._error_detail(exc)
-                body = {"error": "Could not load dashboard data"}
-                if detail:
-                    body["detail"] = detail
-                self._send_json(body, 500)
-            return
+
+        # Health check is exempt so Render liveness checks succeed
         if path == "/api/health":
             try:
                 with get_connection() as conn:
@@ -210,6 +229,21 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     body["detail"] = detail
                 self._send_json(body, 500)
             return
+
+        # All other paths require authentication if configured
+        if not self._check_auth():
+            self._send_auth_required()
+            return
+
+        if path == "/api/dashboard-data":
+            try:
+                self._send_json(get_dashboard_payload())
+            except Exception as exc:
+                detail = self._error_detail(exc)
+                body = {"error": "Could not load dashboard data"}
+                if detail:
+                    body["detail"] = detail
+                self._send_json(body, 500)
         if path == "/":
             self.path = "/index.html"
         super().do_GET()
