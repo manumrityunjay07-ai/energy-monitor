@@ -1,0 +1,4 @@
+.diagnostics-card { margin-top: 1rem; }
+.diagnostics-card p { color: #94a3b8; margin: 0; line-height: 1.6; }
+.health-good { color: #4ade80; }
+.health-warn { color: #fbbf24; }

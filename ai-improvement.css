@@ -1,0 +1,7 @@
+.ai-improvement-card { margin-top: 1rem; }
+.improvement-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; }
+.comparison-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.improvement-grid > div { padding: .9rem; border: 1px solid rgba(148,163,184,.15); border-radius: .75rem; background: rgba(15,23,42,.35); }
+.improvement-grid span, .improvement-grid small { display: block; color: #94a3b8; }
+.improvement-grid strong { display: block; margin: .25rem 0; color: #f8fafc; font-size: 1.35rem; }
+@media (max-width: 760px) { .improvement-grid, .comparison-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
