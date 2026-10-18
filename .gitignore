@@ -26,6 +26,9 @@ Energy_Monitor_HTTP/data/state.json
 Energy_Monitor_HTTP/results/
 Energy_Monitor_HTTP/logs/
 Energy_Monitor_HTTP/data/training/
+public/data/state.json
+public/data/*.dump
+public/data/*.csv
 
 # === Model candidates (approved model IS committed) ===
 Energy_Monitor_HTTP/models/daily_energy_candidate.joblib

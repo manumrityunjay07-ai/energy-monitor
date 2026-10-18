@@ -1,0 +1,39 @@
+.history-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+  gap: var(--gap);
+}
+
+.section-hint {
+  color: var(--color-text-muted);
+  font-size: .72rem;
+}
+
+.suggestions-card { padding: 24px; }
+.suggestions-list {
+  display: grid;
+  gap: 14px;
+  list-style: none;
+  padding: 8px 0 0;
+}
+.suggestions-list li {
+  position: relative;
+  padding: 12px 14px 12px 34px;
+  color: var(--color-text-dim);
+  font-size: .84rem;
+  line-height: 1.5;
+  background: var(--color-blue-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.suggestions-list li::before {
+  content: "✓";
+  position: absolute;
+  left: 13px;
+  color: var(--color-green);
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .history-grid { grid-template-columns: 1fr; }
+}
