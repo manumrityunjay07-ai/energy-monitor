@@ -3,50 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Public static demonstration of Device 153 Energy Monitoring Dashboard. Visualizes daily and hourly energy predictions, consumption analysis, and ML anomaly diagnostics." />
+  <meta name="description" content="Real-time energy consumption monitoring dashboard for Device 153. Tracks daily and hourly predicted and actual kWh usage with anomaly detection." />
   <title>Device 153 — Energy Monitoring Dashboard</title>
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-  <meta name="dashboard-build" content="2026-10-18-pages" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <meta name="dashboard-build" content="2026-10-13-r5" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./style.css?v=20261018-pages" />
-  <link rel="stylesheet" href="./history-suggestions.css?v=20261018-pages" />
-  <link rel="stylesheet" href="./ui-polish.css?v=20261018-pages" />
-  <link rel="stylesheet" href="./monitoring-panels.css?v=20261018-pages" />
-  <link rel="stylesheet" href="./confidence-ui.css?v=20261018-pages" />
-  <link rel="stylesheet" href="./diagnostics.css?v=20261018-pages" />
-  <link rel="stylesheet" href="./ai-improvement.css?v=20261018-pages" />
-  <style>
-    .demo-banner {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: rgba(30, 41, 59, 0.75);
-      border: 1px solid rgba(96, 165, 250, 0.3);
-      border-radius: 8px;
-      padding: 10px 16px;
-      margin: 14px 0 20px 0;
-      font-size: 0.85rem;
-      color: #cbd5e1;
-      backdrop-filter: blur(8px);
-    }
-    .demo-banner__badge {
-      background: rgba(96, 165, 250, 0.15);
-      color: #60a5fa;
-      font-weight: 700;
-      font-size: 0.72rem;
-      padding: 3px 9px;
-      border-radius: 4px;
-      border: 1px solid rgba(96, 165, 250, 0.35);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      white-space: nowrap;
-    }
-    .demo-banner__text {
-      line-height: 1.45;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css?v=20261013-r9" />
+  <link rel="stylesheet" href="history-suggestions.css?v=20261013-r9" />
+  <link rel="stylesheet" href="ui-polish.css?v=20261013-r9" />
+  <link rel="stylesheet" href="monitoring-panels.css?v=20261013-r9" />
+  <link rel="stylesheet" href="confidence-ui.css?v=20261013-r9" />
+  <link rel="stylesheet" href="diagnostics.css?v=20261013-r9" />
+  <link rel="stylesheet" href="ai-improvement.css?v=20261013-r9" />
 </head>
 <body>
 
@@ -90,19 +60,10 @@
       </div>
     </header>
 
-    <!-- ── Public Static Notice Banner ─────────────────────────────── -->
-    <aside class="demo-banner" role="note" aria-label="Static demonstration notice">
-      <span class="demo-banner__badge">GitHub Pages Static View</span>
-      <span class="demo-banner__text">
-        Displaying pre-generated predictions &amp; benchmark telemetry for Device 153.
-        Live PostgreSQL ingestion and automated model maintenance run securely on scheduled local host.
-      </span>
-    </aside>
-
     <!-- ── Loading / Error overlays ───────────────────────────────── -->
     <div class="status-overlay" id="loading-overlay" role="status" aria-live="polite">
       <div class="spinner"></div>
-      <p class="status-overlay__text">Fetching energy data…</p>
+      <p class="status-overlay__text">Fetching latest energy data…</p>
     </div>
 
     <div class="status-overlay status-overlay--error hidden" id="error-overlay" role="alert" aria-live="assertive">
@@ -151,154 +112,80 @@
             <span class="kpi-card__label" id="kpi-error-label">Saved / Over used</span>
             <span class="kpi-card__value" id="kpi-error">—</span>
             <span class="kpi-card__unit" id="kpi-error-unit">kWh</span>
-            <span class="kpi-card__range" id="kpi-error-hint">Comparison vs prediction</span>
+            <span class="kpi-card__range" id="kpi-error-hint">Variance vs forecast</span>
             <span class="kpi-card__date" id="kpi-error-date">—</span>
           </div>
         </article>
 
-      </section>
-
-      <!-- Charts grid row -->
-      <section class="charts-grid" aria-label="Consumption charts">
-
-        <!-- Hourly Chart Card -->
-        <article class="card chart-card">
-          <div class="chart-card__header">
-            <div>
-              <h2 class="chart-card__title">24-Hour Energy Profile</h2>
-              <span class="chart-card__subtitle" id="hourly-data-date">Hourly predicted vs. actual consumption</span>
-            </div>
-            <div class="chart-legend">
-              <span class="legend-item"><span class="legend-dot legend-dot--blue"></span>Predicted</span>
-              <span class="legend-item"><span class="legend-dot legend-dot--green"></span>Actual</span>
-              <span class="legend-item"><span class="legend-dot legend-dot--amber"></span>Deviation</span>
-            </div>
-          </div>
-          <div class="chart-card__canvas-wrap">
-            <canvas id="hourly-chart" aria-label="24-hour energy consumption line chart" role="img"></canvas>
-          </div>
-          <div class="chart-summary-text" id="hourly-chart-summary"></div>
-        </article>
-
-        <!-- Daily History Chart Card -->
-        <article class="card chart-card">
-          <div class="chart-card__header">
-            <div>
-              <h2 class="chart-card__title">Daily Energy History</h2>
-              <span class="chart-card__subtitle" id="history-caption">Comparison across recent days</span>
-            </div>
-            <div class="chart-controls">
-              <div class="range-selector" role="group" aria-label="History date range">
-                <button class="range-btn is-active" data-days="7">7D</button>
-                <button class="range-btn" data-days="14">14D</button>
-                <button class="range-btn" data-days="30">30D</button>
-              </div>
-            </div>
-          </div>
-          <div class="chart-card__canvas-wrap">
-            <canvas id="daily-chart" aria-label="Daily energy history bar chart" role="img"></canvas>
-          </div>
-          <div class="chart-summary-text" id="daily-chart-summary"></div>
-        </article>
 
       </section>
 
-      <!-- AI Learning & Adaptive Model Performance Section -->
-      <section class="card ai-card" aria-label="Machine learning adaptive performance">
+      <!-- Collector health and controls -->
+      <section class="card health-strip" aria-label="Collector health and date controls">
+        <div class="health-metrics-grid">
+          <div class="health-metric"><span class="health-label">Collector</span><strong id="collector-health">Checking…</strong></div>
+          <div class="health-metric"><span class="health-label">Latest collection</span><strong id="collector-last-run">—</strong></div>
+          <div class="health-metric"><span class="health-label">Data freshness</span><strong id="data-freshness">—</strong></div>
+          <div class="health-metric"><span class="health-label">Current data status</span><strong id="current-data-status">—</strong></div>
+        </div>
+        <div class="health-actions-bar">
+          <div class="range-controls" role="group" aria-label="History range">
+            <span class="action-bar-label">Trend History:</span>
+            <button class="range-btn is-active" data-days="7">7 days</button>
+            <button class="range-btn" data-days="14">14 days</button>
+            <button class="range-btn" data-days="30">30 days</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Daily Trend Chart section -->
+      <section class="card chart-section" aria-label="Daily energy history trend">
+        <div class="chart-section__header">
+          <div>
+            <h2 class="section-title">Daily Energy History Trend</h2>
+            <span class="section-hint" id="history-caption">Last 7 days</span>
+          </div>
+          <div class="chart-legend" aria-hidden="true">
+            <span class="legend-dot legend-dot--actual"></span><span>Actual</span>
+            <span class="legend-dot legend-dot--predicted"></span><span>Forecast</span>
+          </div>
+        </div>
+        <div class="chart-wrap chart-wrap--daily">
+          <canvas id="daily-history-chart" aria-label="Daily energy history chart" aria-describedby="daily-chart-summary"></canvas>
+        </div>
+        <p class="sr-only" id="daily-chart-summary">Daily energy history chart.</p>
+      </section>
+
+      <section class="card chart-section" aria-label="24-hour hourly energy chart">
+        <div class="chart-section__header">
+          <h2 class="section-title">24-Hour Hourly Consumption</h2>
+          <span class="section-hint" id="hourly-data-date">Data date: —</span>
+          <div class="chart-legend" aria-hidden="true">
+            <span class="legend-dot legend-dot--predicted"></span><span>Predicted</span>
+            <span class="legend-dot legend-dot--actual"></span><span>Actual</span>
+            <span class="legend-dot legend-dot--error"></span><span>Saved / Over used</span>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="hourly-chart" aria-label="Hourly energy consumption chart" aria-describedby="hourly-chart-summary"></canvas>
+        </div>
+        <p class="sr-only" id="hourly-chart-summary">No hourly records are available for the selected daily date.</p>
+      </section>
+
+      <!-- Hourly data table -->
+      <section class="card table-section" aria-label="Hourly data table">
         <div class="table-section__header">
-          <h2 class="section-title">Machine Learning Model Performance</h2>
-          <span class="section-hint" id="ai-learning-status">Random Forest Daily Model · Active</span>
+          <h2 class="section-title">Hourly Breakdown</h2>
+          <span class="no-actual-note hidden" id="no-actual-note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Actual values not yet available for this period
+          </span>
         </div>
-        <div class="ai-metrics-grid">
-          <div class="ai-metric">
-            <span class="ai-metric__label">Samples Evaluated</span>
-            <span class="ai-metric__value" id="ai-learning-samples">55</span>
-          </div>
-          <div class="ai-metric">
-            <span class="ai-metric__label">Baseline MAE</span>
-            <span class="ai-metric__value" id="ai-baseline-mae">58.42 kWh</span>
-          </div>
-          <div class="ai-metric">
-            <span class="ai-metric__label">Random Forest MAE</span>
-            <span class="ai-metric__value" id="ai-adapted-mae">41.85 kWh</span>
-          </div>
-          <div class="ai-metric">
-            <span class="ai-metric__label">Error Reduction</span>
-            <span class="ai-metric__value ai-metric__value--highlight" id="ai-difference-kwh">-16.57 kWh</span>
-          </div>
-          <div class="ai-metric">
-            <span class="ai-metric__label">Relative Improvement</span>
-            <span class="ai-metric__value ai-metric__value--highlight" id="ai-improvement-percent">28.36%</span>
-          </div>
-        </div>
-        <p class="ai-metric__note" id="ai-improvement-message">Random Forest model outperforms previous observation baseline by 28.36%. Passed all validation gates with chronological holdout testing.</p>
-        <span id="ai-rate-comparison" style="display:none"></span>
-      </section>
-
-      <!-- Health and Diagnostics Panels Row -->
-      <section class="diagnostics-grid" aria-label="System status & diagnostics">
-
-        <article class="card diagnostic-card">
-          <h3 class="diagnostic-card__title">Collector &amp; Pipeline Status</h3>
-          <div class="diagnostic-list">
-            <div class="diagnostic-row">
-              <span class="diagnostic-label">Status:</span>
-              <span class="diagnostic-value" id="collector-health">Operational</span>
-            </div>
-            <div class="diagnostic-row">
-              <span class="diagnostic-label">Last Ping:</span>
-              <span class="diagnostic-value" id="collector-last-run">—</span>
-            </div>
-            <div class="diagnostic-row">
-              <span class="diagnostic-label">Data Freshness:</span>
-              <span class="diagnostic-value" id="data-freshness">Benchmark verified</span>
-            </div>
-            <div class="diagnostic-row">
-              <span class="diagnostic-label">Data Quality:</span>
-              <span class="diagnostic-value" id="current-data-status">Optimal</span>
-            </div>
-          </div>
-        </article>
-
-        <article class="card diagnostic-card">
-          <h3 class="diagnostic-card__title">Historical Date Drilldown</h3>
-          <div class="date-select-wrap">
-            <label for="history-date-select" class="visually-hidden">Select date for detailed inspection</label>
-            <select id="history-date-select" class="history-select">
-              <option value="">Latest Available Day</option>
-            </select>
-          </div>
-          <div class="history-table-wrap">
-            <table class="data-table" aria-label="Daily historical totals">
-              <thead>
-                <tr>
-                  <th scope="col">Date</th>
-                  <th scope="col">Profile</th>
-                  <th scope="col">Predicted kWh</th>
-                  <th scope="col">Actual kWh</th>
-                  <th scope="col">Error kWh</th>
-                </tr>
-              </thead>
-              <tbody id="history-table-body">
-                <!-- Populated by JS -->
-              </tbody>
-            </table>
-          </div>
-        </article>
-
-      </section>
-
-      <!-- Hourly Detail Table Section -->
-      <section class="card table-card" aria-label="Hourly consumption breakdown">
-        <div class="table-section__header">
-          <h2 class="section-title">Hourly Consumption Detail</h2>
-          <span class="section-hint" id="no-actual-note">Hourly kWh measurements and predictions</span>
-        </div>
-        <div class="table-responsive">
-          <table class="data-table" aria-label="Hourly energy details">
+        <div class="table-wrap" role="region" aria-label="Scrollable hourly data table" tabindex="0">
+          <table id="hourly-table" aria-live="polite">
             <thead>
               <tr>
-                <th scope="col">Hour</th>
+                <th scope="col">Hour (IST)</th>
                 <th scope="col">Predicted kWh</th>
                 <th scope="col">Actual kWh</th>
                 <th scope="col">Saved kWh</th>
@@ -320,17 +207,17 @@
         <ul id="anomaly-investigation-list" class="suggestions-list" aria-live="polite"></ul>
       </section>
 
+
     </main>
 
     <!-- ── Footer ─────────────────────────────────────────────────── -->
     <footer class="site-footer">
-      <span>Device 153 Energy Monitor &nbsp;·&nbsp; GitHub Pages Static Edition &nbsp;·&nbsp; Build 2026-10-18-pages &nbsp;·&nbsp; Times in IST (Asia/Kolkata)</span>
+      <span>Device 153 Energy Monitor &nbsp;·&nbsp; Build 2026-10-14-r5 &nbsp;·&nbsp; Data refreshes every 5 minutes &nbsp;·&nbsp; Times in IST (Asia/Kolkata)</span>
     </footer>
 
   </div><!-- .app-shell -->
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-  <script src="./config.js?v=20261018-pages"></script>
-  <script src="./app.js?v=20261018-pages"></script>
+  <script src="app.js?v=20261014-r5"></script>
 </body>
 </html>
