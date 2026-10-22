@@ -31,5 +31,5 @@ window.ENERGY_CONFIG = {
   // Metadata
   siteMode: 'GitHub Pages Static Demo',
   deviceId: 153,
-  version: '2026-10-18-pages',
+  version: '2026-10-19-pages',
 };
