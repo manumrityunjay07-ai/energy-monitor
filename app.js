@@ -1,27 +1,41 @@
 /**
  * Device 153 Energy Monitoring Dashboard
- * Full replacement for app.js.
- * Prioritizes the local PostgreSQL API on localhost, then falls back to the
- * existing GitHub data sources. Database credentials never enter browser code.
+ * Static Demonstration Dashboard for GitHub Pages.
+ * Honors window.ENERGY_CONFIG for data loading.
+ * In demo mode, loads bundled synthetic benchmark dataset only.
+ * Preserves local PostgreSQL API option when running locally.
+ * Database credentials and private telemetry never enter browser code.
  */
 'use strict';
 
+const runtimeConfig = (typeof window !== 'undefined' && window.ENERGY_CONFIG) ? window.ENERGY_CONFIG : {};
+
 const CONFIG = {
-  urls: {
-    localApi: '/api/dashboard-data',
-    liveDataApi: 'https://api.github.com/repos/manumrityunjay07-ai/Energy_Monitor_HTTP/contents/results/dashboard_data.json?ref=live-data',
-    dashboardData: 'https://raw.githubusercontent.com/manumrityunjay07-ai/Energy_Monitor_HTTP/live-data/results/dashboard_data.json',
-    aiResults: 'https://raw.githubusercontent.com/manumrityunjay07-ai/Energy_Monitor_HTTP/live-data/results/ai_results.csv',
-    dailyTotals: 'https://raw.githubusercontent.com/manumrityunjay07-ai/Energy_Monitor_HTTP/live-data/results/daily_totals.csv',
-    hourlyPredictions: 'https://raw.githubusercontent.com/manumrityunjay07-ai/Energy_Monitor_HTTP/live-data/results/hourly_predictions.csv',
-    state: 'https://raw.githubusercontent.com/manumrityunjay07-ai/Energy_Monitor_HTTP/live-data/data/state.json',
-  },
-  refreshInterval: 5 * 60 * 1000,
-  timezone: 'Asia/Kolkata',
+  dataSource: runtimeConfig.dataSource || 'sample',
+  sampleDataUrl: runtimeConfig.sampleDataUrl || './data/sample_dashboard_data.json',
+  customDataUrl: runtimeConfig.customDataUrl || '',
+  localApiUrl: runtimeConfig.localApiUrl || '/api/dashboard-data',
+  refreshInterval: runtimeConfig.refreshIntervalMs || (5 * 60 * 1000),
+  timezone: runtimeConfig.timezone || 'Asia/Kolkata',
   maxRetries: 3,
   requestTimeoutMs: 10000,
   cacheMaxAgeMs: 30 * 60 * 1000,
 };
+
+// Allow URL query parameters for local development / testing
+try {
+  if (typeof window !== 'undefined' && window.location?.search) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('source')) {
+      const src = params.get('source');
+      if (['sample', 'local', 'custom'].includes(src)) CONFIG.dataSource = src;
+    }
+    if (params.has('data')) {
+      CONFIG.customDataUrl = params.get('data');
+      CONFIG.dataSource = 'custom';
+    }
+  }
+} catch { /* ignore URL parameter errors */ }
 
 const $ = id => document.getElementById(id);
 const UI = {
@@ -129,26 +143,31 @@ function saveCache(data) {
   try { localStorage.setItem('energy-dashboard-cache', JSON.stringify({ cachedAt: Date.now(), data })); }
   catch (err) { console.warn('[EnergyDash] Cache write skipped:', err); }
 }
-async function fetchWithRetry(url, asJson = false) {
-  const match = url.match(/^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/);
-  const cdn = match ? `https://cdn.jsdelivr.net/gh/${match[1]}/${match[2]}@${match[3]}/${match[4]}` : url;
+async function fetchWithRetry(url, asJson = true) {
   let lastError;
-  for (const candidate of [...new Set([url, cdn])]) {
-    for (let attempt = 1; attempt <= CONFIG.maxRetries; attempt++) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), CONFIG.requestTimeoutMs);
-      try {
-        const separator = candidate.includes('?') ? '&' : '?';
-        const response = await fetch(`${candidate}${separator}t=${Date.now()}`, { cache: 'no-store', signal: controller.signal });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return asJson ? await response.json() : await response.text();
-      } catch (err) {
-        lastError = err;
-        if (attempt < CONFIG.maxRetries) await new Promise(resolve => setTimeout(resolve, 400 * attempt));
-      } finally { clearTimeout(timer); }
+  for (let attempt = 1; attempt <= CONFIG.maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CONFIG.requestTimeoutMs);
+    try {
+      const separator = url.includes('?') ? '&' : '?';
+      const response = await fetch(`${url}${separator}_t=${Date.now()}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+      return asJson ? await response.json() : await response.text();
+    } catch (err) {
+      lastError = err;
+      if (attempt < CONFIG.maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 400 * attempt));
+      }
+    } finally {
+      clearTimeout(timer);
     }
   }
-  const reason = lastError?.name === 'AbortError' ? `request timed out after ${CONFIG.requestTimeoutMs / 1000}s` : (lastError?.message || 'request failed');
+  const reason = lastError?.name === 'AbortError'
+    ? `request timed out after ${CONFIG.requestTimeoutMs / 1000}s`
+    : (lastError?.message || 'request failed');
   throw new Error(`${reason} (${url})`);
 }
 function normalizePayload(payload, source) {
@@ -161,38 +180,39 @@ function normalizePayload(payload, source) {
   };
 }
 async function loadAllData() {
-  // Only query the local backend on localhost. GitHub Pages and file:// builds
-  // continue to use the existing public-data fallback.
   const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
-  if (isLocalHost) {
+
+  // 1. If running on localhost and configured for local API, attempt local PostgreSQL endpoint
+  if (isLocalHost && CONFIG.dataSource === 'local') {
     try {
-      const payload = await fetchWithRetry(CONFIG.urls.localApi, true);
+      const payload = await fetchWithRetry(CONFIG.localApiUrl, true);
       const normalized = normalizePayload(payload, 'PostgreSQL local API');
       saveCache(normalized);
       return normalized;
     } catch (err) {
-      console.warn('[EnergyDash] Local PostgreSQL API unavailable; trying GitHub data.', err);
+      console.warn('[EnergyDash] Local API unavailable; falling back to sample data.', err);
     }
   }
-  try {
-    const envelope = await fetchWithRetry(CONFIG.urls.liveDataApi, true);
-    const payload = envelope?.content ? JSON.parse(atob(envelope.content.replace(/\s/g, ''))) : envelope;
-    const normalized = normalizePayload(payload, 'live consolidated payload');
-    saveCache(normalized); return normalized;
-  } catch (apiError) {
+
+  // 2. If configured with a custom pre-generated JSON dataset
+  if (CONFIG.dataSource === 'custom' && CONFIG.customDataUrl) {
     try {
-      const payload = await fetchWithRetry(CONFIG.urls.dashboardData, true);
-      const normalized = normalizePayload(payload, 'live consolidated payload');
-      saveCache(normalized); return normalized;
-    } catch (combinedError) {
-      const [aiText, hourlyText, dailyText, stateData] = await Promise.all([
-        fetchWithRetry(CONFIG.urls.aiResults), fetchWithRetry(CONFIG.urls.hourlyPredictions),
-        fetchWithRetry(CONFIG.urls.dailyTotals), fetchWithRetry(CONFIG.urls.state, true),
-      ]);
-      const normalized = { aiRows: parseCSV(aiText), hourlyRows: parseCSV(hourlyText), dailyTotalRows: parseCSV(dailyText), stateData, health: { collector_status: 'legacy payload', source: 'legacy files fallback', error: `${apiError.message}; ${combinedError.message}` } };
-      saveCache(normalized); return normalized;
+      const payload = await fetchWithRetry(CONFIG.customDataUrl, true);
+      const normalized = normalizePayload(payload, 'Custom dataset');
+      saveCache(normalized);
+      return normalized;
+    } catch (err) {
+      console.warn('[EnergyDash] Custom dataset failed; falling back to sample data.', err);
     }
   }
+
+  // 3. Static demonstration mode (GitHub Pages default):
+  // Load only the bundled synthetic benchmark dataset from relative sampleDataUrl.
+  // No external live-data repository files or private states are fetched.
+  const payload = await fetchWithRetry(CONFIG.sampleDataUrl, true);
+  const normalized = normalizePayload(payload, 'Synthetic benchmark dataset (Demo)');
+  saveCache(normalized);
+  return normalized;
 }
 function getLatestAiRow(rows) {
   if (!rows?.length) return null;
@@ -350,14 +370,45 @@ function renderAnomalyInvestigation(hourlyRows) {
   rows.forEach(row => { const li = document.createElement('li'); li.textContent = `${hourLabel(row.hour)}: actual ${row.actual.toFixed(2)} kWh, expected ${row.expected.toFixed(2)} kWh — ${Math.abs(row.deviation).toFixed(2)} kWh (${Math.abs(row.percent || 0).toFixed(1)}%) ${row.deviation >= 0 ? 'above' : 'below'} expected.`; UI.anomalyInvestigationList.appendChild(li); });
 }
 function renderHealth(stateData, health = {}) {
-  const lastRun = stateData?.last_run;
-  if (UI.collectorLastRun) UI.collectorLastRun.textContent = formatISOtoIST(lastRun);
-  const age = lastRun ? Math.max(0, Math.round((Date.now() - new Date(lastRun).getTime()) / 60000)) : null;
-  const healthy = health.collector_status === 'healthy' && lastRun && age < 45;
-  if (UI.collectorHealth) { UI.collectorHealth.textContent = healthy ? 'Healthy' : 'Needs attention'; UI.collectorHealth.className = healthy ? 'health-good' : 'health-warn'; }
-  if (UI.dataFreshness) UI.dataFreshness.textContent = age === null ? 'Unknown' : `${age} min ago`;
-  const status = health.data_quality?.data_status || health.data_quality?.status || health.data_status || 'unknown';
-  if (UI.currentDataStatus) { UI.currentDataStatus.textContent = health.data_quality?.completed_hours != null ? `${status} · ${health.data_quality.completed_hours} completed hours` : status; UI.currentDataStatus.className = status === 'complete' ? 'health-good' : 'health-warn'; }
+  const lastRun = stateData?.last_run || health.last_run;
+  const isDemo = health.source?.includes('Demo') || health.source?.includes('Synthetic') || CONFIG.dataSource === 'sample';
+
+  if (UI.collectorLastRun) {
+    UI.collectorLastRun.textContent = lastRun
+      ? `${formatISOtoIST(lastRun)}${isDemo ? ' (Simulated)' : ''}`
+      : '—';
+  }
+
+  if (isDemo) {
+    if (UI.collectorHealth) {
+      UI.collectorHealth.textContent = 'Simulated (Demo)';
+      UI.collectorHealth.className = 'health-good';
+    }
+    if (UI.dataFreshness) {
+      UI.dataFreshness.textContent = 'Synthetic Demo Data';
+    }
+    if (UI.currentDataStatus) {
+      UI.currentDataStatus.textContent = 'Synthetic Benchmark · Valid';
+      UI.currentDataStatus.className = 'health-good';
+    }
+  } else {
+    const age = lastRun ? Math.max(0, Math.round((Date.now() - new Date(lastRun).getTime()) / 60000)) : null;
+    const healthy = health.collector_status === 'healthy' && lastRun && age < 45;
+    if (UI.collectorHealth) {
+      UI.collectorHealth.textContent = healthy ? 'Healthy' : 'Needs attention';
+      UI.collectorHealth.className = healthy ? 'health-good' : 'health-warn';
+    }
+    if (UI.dataFreshness) {
+      UI.dataFreshness.textContent = age === null ? 'Unknown' : `${age} min ago`;
+    }
+    const status = health.data_quality?.data_status || health.data_quality?.status || health.data_status || 'unknown';
+    if (UI.currentDataStatus) {
+      UI.currentDataStatus.textContent = health.data_quality?.completed_hours != null
+        ? `${status} · ${health.data_quality.completed_hours} completed hours`
+        : status;
+      UI.currentDataStatus.className = status === 'complete' ? 'health-good' : 'health-warn';
+    }
+  }
 }
 function renderDailyChart(aiRows, dailyTotalRows = []) {
   const canvas = $('daily-history-chart'); if (!canvas || typeof Chart === 'undefined') return;
@@ -408,7 +459,12 @@ function showError(message) {
 function showContent() {
   UI.loadingOverlay?.classList.add('hidden'); UI.errorOverlay?.classList.add('hidden'); UI.mainContent?.classList.remove('hidden');
   if (UI.updateDot) UI.updateDot.className = 'update-dot'; UI.refreshIcon?.classList.remove('btn-refresh__icon--spinning');
-  if (UI.lastUpdated) UI.lastUpdated.textContent = `Updated ${nowIST()} IST`;
+  const isDemo = activePayload?.health?.source?.includes('Demo') || activePayload?.health?.source?.includes('Synthetic') || CONFIG.dataSource === 'sample';
+  if (UI.lastUpdated) {
+    UI.lastUpdated.textContent = isDemo
+      ? `Demo Mode · Updated ${nowIST()} IST`
+      : `Updated ${nowIST()} IST`;
+  }
 }
 async function refresh() {
   showLoading();

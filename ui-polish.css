@@ -93,6 +93,45 @@ tbody td { border-bottom-color: rgba(148, 163, 184, .10); }
 
 .site-footer { color: #64748b; padding-top: 24px; }
 
+/* ── Demonstration banner ───────────────────────────────────────── */
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  margin-bottom: 24px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: var(--radius-md, 14px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  position: relative;
+  z-index: 1;
+}
+
+.demo-banner__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.demo-banner__text {
+  font-size: 0.82rem;
+  color: var(--color-text-dim, #94a3b8);
+  line-height: 1.45;
+  flex: 1 1 300px;
+}
+
 @media (max-width: 700px) {
   .site-header { height: auto; min-height: var(--header-h); padding-block: 12px; }
   .header-right { gap: 7px; }

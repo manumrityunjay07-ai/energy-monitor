@@ -60,6 +60,15 @@
       </div>
     </header>
 
+    <!-- ── Demonstration notice banner ───────────────────────────── -->
+    <aside class="demo-banner" role="status" aria-label="Demonstration Notice">
+      <span class="demo-banner__badge">DEMO — SYNTHETIC DATA — NOT LIVE TELEMETRY</span>
+      <span class="demo-banner__text">
+        Static demonstration dashboard running on GitHub Pages with bundled synthetic benchmark data.
+        Collector health, forecasts, and hourly profiles are simulated for demonstration. No live telemetry or PostgreSQL connection.
+      </span>
+    </aside>
+
     <!-- ── Loading / Error overlays ───────────────────────────────── -->
     <div class="status-overlay" id="loading-overlay" role="status" aria-live="polite">
       <div class="spinner"></div>
@@ -212,12 +221,13 @@
 
     <!-- ── Footer ─────────────────────────────────────────────────── -->
     <footer class="site-footer">
-      <span>Device 153 Energy Monitor &nbsp;·&nbsp; Build 2026-10-14-r5 &nbsp;·&nbsp; Data refreshes every 5 minutes &nbsp;·&nbsp; Times in IST (Asia/Kolkata)</span>
+      <span>Device 153 Energy Monitor &nbsp;·&nbsp; GitHub Pages Static Demo &nbsp;·&nbsp; Synthetic Benchmark Data (Not Live Telemetry) &nbsp;·&nbsp; Times in IST (Asia/Kolkata)</span>
     </footer>
 
   </div><!-- .app-shell -->
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-  <script src="app.js?v=20261014-r5"></script>
+  <script src="config.js?v=20261019-pages"></script>
+  <script src="app.js?v=20261019-pages"></script>
 </body>
 </html>
